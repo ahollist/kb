@@ -5,11 +5,10 @@
 
 #include "hardware/spi.h"
 #include "hardware/clocks.h"
+#include "hardware/gpio.h"
 
 #include "../include/mcp23s18.h"
 #include "../include/utils.h"
-
-#define LED_DELAY_MS 500
 
 #define SPI_BAUDRATE 10000000
 
@@ -62,6 +61,10 @@ int spi_gpio_init() {
     gpio_set_dir(5, GPIO_OUT);
     gpio_put(5, 1); // Must be high or MCP23S18 will stay off
 
+    // Interrupt Pin
+    gpio_init(7);
+    gpio_set_dir(7, GPIO_IN);
+
     spi_set_format(spi_default, 8, SPI_CPOL_0, SPI_CPHA_1, SPI_MSB_FIRST);
 
     return PICO_OK;
@@ -69,29 +72,60 @@ int spi_gpio_init() {
 
 uint8_t spi_write_byte(uint8_t addr, uint8_t byte){
     uint8_t written = 0;
-    const uint8_t msg[3] = {MCP23S18_WRITE, addr, byte};
-    uint8_t res[3] = {0,0,0};
+    const uint8_t msg[MSG_ONE_BYTE_LEN] = {MCP23S18_WRITE, addr, byte};
+    uint8_t res[MSG_ONE_BYTE_LEN] = {0,0,0};
     gpio_put(1, 0);
-    written = spi_write_read_blocking(spi_default, msg, res, 3);
+    written = spi_write_read_blocking(spi_default, msg, res, MSG_ONE_BYTE_LEN);
     gpio_put(1, 1);
-    printf("Wrote to %02X: %04X\n", addr, byte);
+    printf("Wrote to %02X: %02X\n", addr, byte);
 
     return written;
 }
 
 uint8_t spi_read_byte(uint8_t addr, uint8_t *data){
     uint8_t written = 0;
-    uint8_t msg[3] = {MCP23S18_READ, addr, 0};
-    uint8_t res[3] = {0, 0, 0};
+    uint8_t msg[MSG_ONE_BYTE_LEN] = {MCP23S18_READ, addr, 0};
+    uint8_t res[MSG_ONE_BYTE_LEN] = {0, 0, 0};
     gpio_put(1, 0);
-    written = spi_write_read_blocking(spi_default, msg, res, 3);
+    written = spi_write_read_blocking(spi_default, msg, res, MSG_ONE_BYTE_LEN);
     gpio_put(1, 1);
     *data = res[2];
     printf("Read from %02X:"BYTE_TO_BINARY_PATTERN"\n", addr, BYTE_TO_BINARY(*data));
 
     return written;
 }
+
+uint8_t spi_write_2_sequential_bytes(uint8_t addr, uint8_t msg1, uint8_t msg2) {
+    uint8_t written = 0;
+    const uint8_t msg[MSG_TWO_BYTE_LEN] = {MCP23S18_WRITE, addr, msg1, msg2};
+    uint8_t res[MSG_TWO_BYTE_LEN] = {0,0,0,0};
+    gpio_put(1, 0);
+    written = spi_write_read_blocking(spi_default, msg, res, MSG_TWO_BYTE_LEN);
+    gpio_put(1, 1);
+    printf("Wrote to %02X and %02X: %02X %02X\n", addr, addr+1, msg1, msg2);
+
+    return written;
+}
+
+uint8_t spi_read_2_sequential_bytes(uint8_t addr, uint8_t *data) {
+    uint8_t written = 0;
+    const uint8_t msg[MSG_TWO_BYTE_LEN] = {MCP23S18_READ, addr, 0, 0};
+    uint8_t res[MSG_TWO_BYTE_LEN] = {0,0,0,0};
+    gpio_put(1, 0);
+    written = spi_write_read_blocking(spi_default, msg, res, MSG_TWO_BYTE_LEN);
+    gpio_put(1, 1);
+    data[0] = res[2];
+    data[1] = res[3];
+    printf("Read from %02X and %02X: "BYTE_TO_BINARY_PATTERN" "BYTE_TO_BINARY_PATTERN"\n", addr, addr+1, BYTE_TO_BINARY(data[0]), BYTE_TO_BINARY(data[1]));
+
+    return written;
+}
 /* END SPI STUFF */
+uint8_t val[2] = {0,0};
+
+void gpio_callback(uint gpio, uint32_t events) {
+    spi_read_2_sequential_bytes(GPIOA, val);
+}
 
 int main() {
     stdio_init_all();
@@ -108,23 +142,15 @@ int main() {
     hard_assert(ret == PICO_OK);
     printf("drivers initialized\n");
 
-    // Enable Sequential Operations
-    uint8_t msg = 1 << IOCON_SEQOP_SHIFT;
+    // Bind A/B interrupts to output from both interrupt pins
+    uint8_t msg =(1 << IOCON_MIRROR_SHIFT);
     spi_write_byte(IOCON, msg);
     // Set all GPIOs to be internally pulled up
-    msg = ENABLE_ALL_BITS;
-    spi_write_byte(GPPUA, msg);
-    spi_write_byte(GPPUB, msg);
-    
-    uint8_t val = 0;
-    while (true) {
-        pico_set_led(true);
-        sleep_ms(LED_DELAY_MS);
+    spi_write_2_sequential_bytes(GPPUA, ENABLE_ALL_BITS, ENABLE_ALL_BITS);
+    // Enable interrupt-on-change for each pin
+    spi_write_2_sequential_bytes(GPINTENA, ENABLE_ALL_BITS, ENABLE_ALL_BITS);
+    // Enable GPIO7 level low interrupt
+    gpio_set_irq_enabled_with_callback(7,GPIO_IRQ_LEVEL_LOW, true, &gpio_callback);
 
-        spi_read_byte(GPIOA, &val);
-        spi_read_byte(GPIOB, &val);
-
-        pico_set_led(false);
-        sleep_ms(LED_DELAY_MS);
-    }
+    while(true); // spin away baby
 }

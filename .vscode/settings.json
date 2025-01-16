@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "gpio.h": "c",
+        "clocks.h": "c",
+        "spi.h": "c"
+    },
+    "workbench.editor.enablePreview": false
+}
