@@ -1,5 +1,7 @@
 ## Requirements
-Pico SDK is installed to the home folder: `~/pico/pico-sdk` 
+Pico SDK is set in the env: `PICO_SDK_PATH` to the https://github.com/raspberrypi/pico-sdk/ repo
+
+FreeRTOS-Kernel is set in the env: `FREERTOS_KERNEL_PATH` to the https://github.com/FreeRTOS/FreeRTOS-Kernel repo
 
 arm-none-eabi toolchain is installed to: `/opt/toolchains/arm-gnu-toolchain-14.2.rel1-darwin-x86_64-arm-none-eabi/bin/arm-none-eabi-gcc`
 

@@ -9,11 +9,14 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "task_defines.h"
 
 #include "spi_helpers.h"
 #include "led_helpers.h"
 #include "mcp23s18.h"
 #include "utils.h"
+
+void main_task();
 
 int main() {
     stdio_uart_init_full(uart1, 115200, 4, 5);
@@ -29,6 +32,14 @@ int main() {
     hard_assert(ret == PICO_OK);
 
     printf("drivers and peripherals initialized\n");
+    TaskHandle_t main_handle;
+    xTaskCreate(main_task, "Main", MAIN_TASK_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, &main_handle);
 
-    while(true); // spin away baby
+    vTaskStartScheduler();
+
+    printf("closing\n");
+}
+
+void main_task() {
+    while(true);
 }
