@@ -3,10 +3,17 @@
         {
             "name": "Mac",
             "includePath": [
+                "~/pico/pico-sdk/src/rp2_common/pico_stdio/include",
+                "~/pico/pico-sdk/src/rp2_common/hardware_clocks/include",
+                "~/pico/pico-sdk/src/rp2_common/hardware_gpio/include",
+                "~/pico/pico-sdk/src/rp2_common/hardware_spi/include",
                 "~/pico/pico-sdk/src/rp2_common/**",
                 "~/pico/pico-sdk/src/**",
+                "~/code/FreeRTOS-Kernel/portable/ThirdParty/GCC/RP2040/include",
+                "~/code/FreeRTOS-Kernel/include",
                 "~/pico/pico-sdk/lib/tinyusb/**",
-                "${workspaceFolder}/build/generated/pico_base/**" 
+                "${workspaceFolder}/build/generated/pico_base/**",
+                "${workspaceFolder}/include"
             ],
             "defines": [
                 "CFG_TUSB_MCU=OPT_MCU_RP2040"
