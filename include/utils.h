@@ -12,4 +12,7 @@
   ((byte) & 0x02 ? '1' : '0'), \
   ((byte) & 0x01 ? '1' : '0') 
 
+#define on true
+#define off false
+
 #endif

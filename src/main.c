@@ -30,23 +30,21 @@ int pico_led_init(void) {
 }
 
 // Turn the led on or off
-void pico_set_led(uint pin, bool led_off) {
-    gpio_put(pin, led_off);
+void set_led(uint pin, bool led_on) {
+    // set to 0 to sink led, set to 1 to turn off
+    gpio_put(pin, !led_on);
 }
 /* END LED STUFF */
 
 /* SPI STUFF */
-uint8_t out_buf[MSG_ONE_BYTE_LEN], in_buf[MSG_ONE_BYTE_LEN];
+bool print_logs = false;
 
-int spi_gpio_init() {
+int system_gpio_init() {
     gpio_init(0);
     gpio_set_function(0, GPIO_FUNC_SPI);
 
     gpio_init(2);
     gpio_set_function(2, GPIO_FUNC_SPI);
-
-    //gpio_init(1);
-    //gpio_set_function(1, GPIO_FUNC_SPI);
 
     gpio_init(3);
     gpio_set_function(3, GPIO_FUNC_SPI);
@@ -57,9 +55,9 @@ int spi_gpio_init() {
     gpio_put(1, 1);
 
     // !RST
-    gpio_init(5);
-    gpio_set_dir(5, GPIO_OUT);
-    gpio_put(5, 1); // Must be high or MCP23S18 will stay off
+    gpio_init(6);
+    gpio_set_dir(6, GPIO_OUT);
+    gpio_put(6, 1); // Must be high or MCP23S18 will stay off
 
     // Interrupt Pin
     gpio_init(7);
@@ -77,7 +75,9 @@ uint8_t spi_write_byte(uint8_t addr, uint8_t byte){
     gpio_put(1, 0);
     written = spi_write_read_blocking(spi_default, msg, res, MSG_ONE_BYTE_LEN);
     gpio_put(1, 1);
-    printf("Wrote to %02X: %02X\n", addr, byte);
+    if (print_logs) {
+        printf("Wrote to %02X: %02X\n", addr, byte);
+    }
 
     return written;
 }
@@ -90,7 +90,9 @@ uint8_t spi_read_byte(uint8_t addr, uint8_t *data){
     written = spi_write_read_blocking(spi_default, msg, res, MSG_ONE_BYTE_LEN);
     gpio_put(1, 1);
     *data = res[2];
-    printf("Read from %02X:"BYTE_TO_BINARY_PATTERN"\n", addr, BYTE_TO_BINARY(*data));
+    if (print_logs) {
+        printf("Read from %02X:"BYTE_TO_BINARY_PATTERN"\n", addr, BYTE_TO_BINARY(*data));
+    }
 
     return written;
 }
@@ -102,7 +104,9 @@ uint8_t spi_write_2_sequential_bytes(uint8_t addr, uint8_t msg1, uint8_t msg2) {
     gpio_put(1, 0);
     written = spi_write_read_blocking(spi_default, msg, res, MSG_TWO_BYTE_LEN);
     gpio_put(1, 1);
-    printf("Wrote to %02X and %02X: %02X %02X\n", addr, addr+1, msg1, msg2);
+    if (print_logs) {
+        printf("Wrote to %02X and %02X: %02X %02X\n", addr, addr+1, msg1, msg2);
+    }
 
     return written;
 }
@@ -116,7 +120,9 @@ uint8_t spi_read_2_sequential_bytes(uint8_t addr, uint8_t *data) {
     gpio_put(1, 1);
     data[0] = res[2];
     data[1] = res[3];
-    printf("Read from %02X and %02X: "BYTE_TO_BINARY_PATTERN" "BYTE_TO_BINARY_PATTERN"\n", addr, addr+1, BYTE_TO_BINARY(data[0]), BYTE_TO_BINARY(data[1]));
+    if (print_logs) {
+        printf("Read from %02X and %02X: "BYTE_TO_BINARY_PATTERN" "BYTE_TO_BINARY_PATTERN"\n", addr, addr+1, BYTE_TO_BINARY(data[0]), BYTE_TO_BINARY(data[1]));
+    }
 
     return written;
 }
@@ -126,34 +132,37 @@ uint8_t val[2] = {0,0};
 void gpio_callback(uint gpio, uint32_t events) {
     spi_read_2_sequential_bytes(GPIOA, val);
     if ((val[0] | 0b11101111) == 0b11101111) {
-        pico_set_led(TINY2040_LED_R_PIN, false);
+        set_led(TINY2040_LED_R_PIN, on);
     } else {
-        pico_set_led(TINY2040_LED_R_PIN, true);
+        set_led(TINY2040_LED_R_PIN, off);
     }
     if ((val[0] | 0b11011111) == 0b11011111 ) {
-        pico_set_led(TINY2040_LED_G_PIN, false);
+        set_led(TINY2040_LED_G_PIN, on);
     } else {
-        pico_set_led(TINY2040_LED_G_PIN, true);
+        set_led(TINY2040_LED_G_PIN, off);
     }
-        if ((val[0] | 0b10111111) == 0b10111111 ) {
-        pico_set_led(TINY2040_LED_B_PIN, false);
+    if ((val[0] | 0b10111111) == 0b10111111 ) {
+        set_led(TINY2040_LED_B_PIN, on);
     } else {
-        pico_set_led(TINY2040_LED_B_PIN, true);
+        set_led(TINY2040_LED_B_PIN, off);
+    }
+    if ((val[0] | 0b01111111) == 0b01111111) {
+        print_logs = true;
+    } else {
+        print_logs = false;
     }
 }
 
 int main() {
-    stdio_init_all();
+    stdio_uart_init_full(uart1, 115200, 4, 5);
     int ret = pico_led_init();
     hard_assert(ret == PICO_OK);
 
-    sleep_ms(2000);
     printf("hello, world!\n");
-
     int real_baud = spi_init(spi_default, SPI_BAUDRATE);
     printf("set spi baudrate at: %d\n", real_baud);
     printf("system clock: %d\n", clock_get_hz(clk_peri));
-    ret = spi_gpio_init();
+    ret = system_gpio_init();
     hard_assert(ret == PICO_OK);
     printf("drivers initialized\n");
 
