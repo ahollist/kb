@@ -30,8 +30,8 @@ int pico_led_init(void) {
 }
 
 // Turn the led on or off
-void pico_set_led(bool led_off) {
-    gpio_put(PICO_DEFAULT_LED_PIN, led_off);
+void pico_set_led(uint pin, bool led_off) {
+    gpio_put(pin, led_off);
 }
 /* END LED STUFF */
 
@@ -125,6 +125,21 @@ uint8_t val[2] = {0,0};
 
 void gpio_callback(uint gpio, uint32_t events) {
     spi_read_2_sequential_bytes(GPIOA, val);
+    if ((val[0] | 0b11101111) == 0b11101111) {
+        pico_set_led(TINY2040_LED_R_PIN, false);
+    } else {
+        pico_set_led(TINY2040_LED_R_PIN, true);
+    }
+    if ((val[0] | 0b11011111) == 0b11011111 ) {
+        pico_set_led(TINY2040_LED_G_PIN, false);
+    } else {
+        pico_set_led(TINY2040_LED_G_PIN, true);
+    }
+        if ((val[0] | 0b10111111) == 0b10111111 ) {
+        pico_set_led(TINY2040_LED_B_PIN, false);
+    } else {
+        pico_set_led(TINY2040_LED_B_PIN, true);
+    }
 }
 
 int main() {
