@@ -1,16 +1,8 @@
 {
     "files.associations": {
-        "gpio.h": "c",
-        "clocks.h": "c",
-        "spi.h": "c",
-        "stdlib.h": "c",
-        "stdio.h": "c",
-        "platform.h": "c",
-        "freertos.h": "c",
-        "freertosconfig.h": "c",
-        "portable.h": "c",
-        "sync.h": "c",
-        "task.h": "c",
+        "*.h": "c",
+        "*.c": "c",
+
     },
     "workbench.editor.enablePreview": false
 }

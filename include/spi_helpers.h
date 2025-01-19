@@ -13,7 +13,6 @@
 #define GPIO_EXPANDER_1_CS_PIN_1 1
 
 extern bool print_logs;
-extern uint8_t val[2];
 
 int system_spi_init();
 

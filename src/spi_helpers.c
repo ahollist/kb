@@ -100,36 +100,10 @@ uint8_t spi_read_2_sequential_bytes(uint8_t addr, uint8_t *data) {
     data[0] = res[2];
     data[1] = res[3];
     if (print_logs) {
-        printf("Read from %02X and %02X: "BYTE_TO_BINARY_PATTERN" "BYTE_TO_BINARY_PATTERN"\n", addr, addr+1, BYTE_TO_BINARY(data[0]), BYTE_TO_BINARY(data[1]));
+        printf("Read from %02X and %02X: "BYTE_TO_BINARY_PATTERN" "BYTE_TO_BINARY_PATTERN"\n", addr, addr+1, BYTE_TO_BINARY(res[2]), BYTE_TO_BINARY(res[3]));
     }
 
     return written;
-}
-
-uint8_t val[2] = {0,0};
-
-void gpio_callback(uint gpio, uint32_t events) {
-    spi_read_2_sequential_bytes(GPIOA, val);
-    if ((val[0] | 0b11101111) == 0b11101111) {
-        set_led(TINY2040_LED_R_PIN, on);
-    } else {
-        set_led(TINY2040_LED_R_PIN, off);
-    }
-    if ((val[0] | 0b11011111) == 0b11011111 ) {
-        set_led(TINY2040_LED_G_PIN, on);
-    } else {
-        set_led(TINY2040_LED_G_PIN, off);
-    }
-    if ((val[0] | 0b10111111) == 0b10111111 ) {
-        set_led(TINY2040_LED_B_PIN, on);
-    } else {
-        set_led(TINY2040_LED_B_PIN, off);
-    }
-    if ((val[0] | 0b01111111) == 0b01111111) {
-        print_logs = true;
-    } else {
-        print_logs = false;
-    }
 }
 
 int mcp23s18_init(){
@@ -140,8 +114,6 @@ int mcp23s18_init(){
     spi_write_2_sequential_bytes(GPPUA, ENABLE_ALL_BITS, ENABLE_ALL_BITS);
     // Enable interrupt-on-change for each pin
     spi_write_2_sequential_bytes(GPINTENA, ENABLE_ALL_BITS, ENABLE_ALL_BITS);
-    // Enable GPIO7 level low interrupt
-    gpio_set_irq_enabled_with_callback(7,GPIO_IRQ_LEVEL_LOW, true, &gpio_callback);
 
     return PICO_OK;
 }
