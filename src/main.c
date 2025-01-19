@@ -104,9 +104,8 @@ void spi_task() {
                 if (MSG_TWO_BYTE_LEN != bytes_read){
                     printf("INCORRECT READ: %D INSTEAD OF %D\n", bytes_read, MSG_TWO_BYTE_LEN);
                 }
-                if (0 == data[0] || 0 == data[1]) {
+                if (0 == data[0] && 0 == data[1]) {
                     printf("GOT ALL ZEROES\n");
-                    continue;
                 }
                 if (data[0] != spi_data[gpio_expander_num-1][0]) {
                     spi_data[gpio_expander_num-1][0] = data[0];
@@ -116,8 +115,8 @@ void spi_task() {
                     spi_data[gpio_expander_num-1][1] = data[1];
                     data_updated = true;
                 }
+                gpio_set_irq_enabled(GPIO_EXPANDER_1_INT_PIN, GPIO_IRQ_LEVEL_LOW, true);
             }
-            gpio_set_irq_enabled(GPIO_EXPANDER_1_INT_PIN, GPIO_IRQ_LEVEL_LOW, true);
         } else {
             printf("Timed out waiting for notification\n");
             // don't do stuff
@@ -127,16 +126,17 @@ void spi_task() {
 
 int64_t spi_wakeup_alarm(alarm_id_t id, void* user_data){
     BaseType_t task_woken = pdFALSE;
-    xTaskNotifyFromISR(spi_task_handle, *(uint32_t*)user_data, eSetBits, &task_woken);
+    uint32_t wakeup_value = *(uint32_t*)user_data;
+    xTaskNotifyFromISR(spi_task_handle, wakeup_value, eSetBits, &task_woken);
     return 0;
 }
 
 void gpio_callback(uint gpio, uint32_t events) {
-    gpio_set_irq_enabled(GPIO_EXPANDER_1_INT_PIN, GPIO_IRQ_LEVEL_LOW, false);
     // Determine from GPIO pin which interrupt has occurred
-    uint32_t which_expander = 0;
+    static uint32_t which_expander = 0;
     switch(gpio){
         case GPIO_EXPANDER_1_INT_PIN:
+            gpio_set_irq_enabled(GPIO_EXPANDER_1_INT_PIN, GPIO_IRQ_LEVEL_LOW, false);
             which_expander = (uint32_t)FIRST;
             break;
         default:
