@@ -1,7 +1,6 @@
 add_executable(kb
     main.c
-    spi_helpers.c
-    led_helpers.c
+    mcp23s18.c
     )
 
 # pull in common dependencies

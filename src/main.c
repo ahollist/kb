@@ -6,24 +6,26 @@
 
 #include "hardware/clocks.h"
 #include "hardware/gpio.h"
+#include "hardware/spi.h"
 #include "hardware/sync.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include "pin_defines.h"
 #include "task_defines.h"
+#include "system_defines.h"
 
-#include "spi_helpers.h"
-#include "led_helpers.h"
+#include "led.h"
 #include "mcp23s18.h"
 #include "utils.h"
 
-#define NUM_GPIO_EXPANDERS 1
-#define SW_DEBOUNCE_US 200
+typedef struct spi_task_notification {
+    uint32_t gpio_expander_0 : 1;
+    uint32_t rsvd : 31;
+} SPI_Task_Notification_t;
 
-typedef enum {
-    FIRST = 0x1,
-} GPIOExpander_index_t;
+int system_spi_init();
 
 static uint8_t spi_data[NUM_GPIO_EXPANDERS][2] = {0};
 static bool data_updated = false;
@@ -39,10 +41,12 @@ void gpio_callback(uint gpio, uint32_t events);
 
 int main() {
     stdio_uart_init_full(uart1, 115200, 4, 5);
-    int ret = pico_led_init();
-    hard_assert(ret == PICO_OK);
-
     printf("hello, world!\n");
+
+    int ret = 0;
+
+    ret = led_init();
+    hard_assert(ret == PICO_OK);
 
     ret = system_spi_init();
     hard_assert(ret == PICO_OK);
@@ -51,12 +55,12 @@ int main() {
     hard_assert(ret == PICO_OK);
 
     printf("drivers and peripherals initialized\n");
+
     xTaskCreate(main_task, "Main", MAIN_TASK_STACK_SIZE, NULL, MAIN_TASK_PRIORITY, &main_task_handle);
     xTaskCreate(spi_task, "SPI", SPI_TASK_STACK_SIZE, NULL, SPI_TASK_PRIORITY, &spi_task_handle);
 
     // Enable GPIO7 level low interrupt
     gpio_set_irq_enabled_with_callback(7,GPIO_IRQ_LEVEL_LOW, true, &gpio_callback);
-
 
     vTaskStartScheduler();
 
@@ -68,24 +72,24 @@ void main_task() {
         if (data_updated) {
             // Do stuff with the new data
             if ((spi_data[0][0] | 0b11101111) == 0b11101111) {
-                set_led(TINY2040_LED_R_PIN, on);
+                set_led(LED_R, on);
             } else {
-                set_led(TINY2040_LED_R_PIN, off);
+                set_led(LED_R, off);
             }
             if ((spi_data[0][0] | 0b11011111) == 0b11011111 ) {
-                set_led(TINY2040_LED_G_PIN, on);
+                set_led(LED_G, on);
             } else {
-                set_led(TINY2040_LED_G_PIN, off);
+                set_led(LED_G, off);
             }
             if ((spi_data[0][0] | 0b10111111) == 0b10111111 ) {
-                set_led(TINY2040_LED_B_PIN, on);
+                set_led(LED_B, on);
             } else {
-                set_led(TINY2040_LED_B_PIN, off);
+                set_led(LED_B, off);
             }
             if ((spi_data[0][0] | 0b01111111) == 0b01111111) {
-                print_logs = true;
+                enable_mcp23s18_logging(true);
             } else {
-                print_logs = false;
+                enable_mcp23s18_logging(false);
             }
         }
     }
@@ -95,27 +99,26 @@ void spi_task() {
     while(true){
         uint32_t notification_value = 0;
         if (pdTRUE == xTaskNotifyWait(0x0UL, ULONG_MAX, &notification_value, portMAX_DELAY)){
+            SPI_Task_Notification_t notification = {notification_value};
             // read designated expander and store values into specified buffer
-            GPIOExpander_index_t gpio_expander_num = FIRST;
             uint8_t data[2] = {0};
-            if (notification_value & FIRST) {
-                gpio_expander_num = FIRST;
-                uint8_t bytes_read = spi_read_2_sequential_bytes(GPIOA, data); // eventually choose CS as well
+            if (notification.gpio_expander_0) {
+                uint8_t bytes_read = mcp23s18_read_2_sequential_bytes(GPIOA, data); // eventually choose CS as well
                 if (MSG_TWO_BYTE_LEN != bytes_read){
                     printf("INCORRECT READ: %D INSTEAD OF %D\n", bytes_read, MSG_TWO_BYTE_LEN);
                 }
                 if (0 == data[0] && 0 == data[1]) {
                     printf("GOT ALL ZEROES\n");
                 }
-                if (data[0] != spi_data[gpio_expander_num-1][0]) {
-                    spi_data[gpio_expander_num-1][0] = data[0];
+                if (data[0] != spi_data[0][0]) {
+                    spi_data[0][0] = data[0];
                     data_updated = true;
                 }
-                if (data[1] != spi_data[gpio_expander_num-1][1]) {
-                    spi_data[gpio_expander_num-1][1] = data[1];
+                if (data[1] != spi_data[0][1]) {
+                    spi_data[0][1] = data[1];
                     data_updated = true;
                 }
-                gpio_set_irq_enabled(GPIO_EXPANDER_1_INT_PIN, GPIO_IRQ_LEVEL_LOW, true);
+                gpio_set_irq_enabled(GPIO_EXPANDER_0_INT_PIN, GPIO_IRQ_LEVEL_LOW, true);
             }
         } else {
             printf("Timed out waiting for notification\n");
@@ -133,11 +136,11 @@ int64_t spi_wakeup_alarm(alarm_id_t id, void* user_data){
 
 void gpio_callback(uint gpio, uint32_t events) {
     // Determine from GPIO pin which interrupt has occurred
-    static uint32_t which_expander = 0;
+    static SPI_Task_Notification_t which_expander = {0};
     switch(gpio){
-        case GPIO_EXPANDER_1_INT_PIN:
-            gpio_set_irq_enabled(GPIO_EXPANDER_1_INT_PIN, GPIO_IRQ_LEVEL_LOW, false);
-            which_expander = (uint32_t)FIRST;
+        case GPIO_EXPANDER_0_INT_PIN:
+            gpio_set_irq_enabled(GPIO_EXPANDER_0_INT_PIN, GPIO_IRQ_LEVEL_LOW, false);
+            which_expander.gpio_expander_0 = true;
             break;
         default:
             printf("No associated expander for %d\n", gpio);
@@ -146,3 +149,37 @@ void gpio_callback(uint gpio, uint32_t events) {
     // Start 200us Alarm, calling the wakeup directly if the timeout expires before setting
     add_alarm_in_us(SW_DEBOUNCE_US, spi_wakeup_alarm, (void*)&which_expander, true);
 }
+
+int system_spi_init() {
+    uint real_baud = spi_init(spi_default, SPI_BAUDRATE);
+    
+    printf("set spi baudrate at: %d\n", real_baud);
+    printf("system clock: %d\n", clock_get_hz(clk_peri));
+
+    gpio_init(SPI_MOSI_PIN);
+    gpio_set_function(SPI_MOSI_PIN, GPIO_FUNC_SPI);
+
+    gpio_init(SPI_MISO_PIN);
+    gpio_set_function(SPI_MISO_PIN, GPIO_FUNC_SPI);
+
+    gpio_init(SPI_SCLK_PIN);
+    gpio_set_function(SPI_SCLK_PIN, GPIO_FUNC_SPI);
+
+    // Manual CS control
+    gpio_init(GPIO_EXPANDER_0_CS_PIN);
+    gpio_set_dir(GPIO_EXPANDER_0_CS_PIN, GPIO_OUT);
+    gpio_put(GPIO_EXPANDER_0_CS_PIN, 1);
+
+    // !RST
+    gpio_init(GPIO_EXPANDER_0_RST_PIN);
+    gpio_set_dir(GPIO_EXPANDER_0_RST_PIN, GPIO_OUT);
+    gpio_put(GPIO_EXPANDER_0_RST_PIN, 1); // Must be high or MCP23S18 will stay off
+
+    // Interrupt Pin
+    gpio_init(GPIO_EXPANDER_0_INT_PIN);
+    gpio_set_dir(GPIO_EXPANDER_0_INT_PIN, GPIO_IN);
+
+    spi_set_format(spi_default, 8, SPI_CPOL_0, SPI_CPHA_1, SPI_MSB_FIRST);
+
+    return PICO_OK;
+}   

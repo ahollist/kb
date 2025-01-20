@@ -5,49 +5,18 @@
 #include "hardware/spi.h"
 #include "hardware/clocks.h"
 
-#include "spi_helpers.h"
-#include "led_helpers.h"
+#include "pin_defines.h"
+
 #include "mcp23s18.h"
 #include "utils.h"
 
-bool print_logs = false;
+static bool print_logs = false;
 
-int system_spi_init() {
-    int real_baud = spi_init(spi_default, SPI_BAUDRATE);
-    if (print_logs) {
-        printf("set spi baudrate at: %d\n", real_baud);
-        printf("system clock: %d\n", clock_get_hz(clk_peri));
-    }
+void enable_mcp23s18_logging(bool enable){
+    print_logs = enable;
+}
 
-    gpio_init(SPI_MOSI_PIN);
-    gpio_set_function(SPI_MOSI_PIN, GPIO_FUNC_SPI);
-
-    gpio_init(SPI_MISO_PIN);
-    gpio_set_function(SPI_MISO_PIN, GPIO_FUNC_SPI);
-
-    gpio_init(SPI_SCLK_PIN);
-    gpio_set_function(SPI_SCLK_PIN, GPIO_FUNC_SPI);
-
-    // Manual CS control
-    gpio_init(GPIO_EXPANDER_1_CS_PIN_1);
-    gpio_set_dir(GPIO_EXPANDER_1_CS_PIN_1, GPIO_OUT);
-    gpio_put(GPIO_EXPANDER_1_CS_PIN_1, 1);
-
-    // !RST
-    gpio_init(GPIO_EXPANDER_RST_PIN);
-    gpio_set_dir(GPIO_EXPANDER_RST_PIN, GPIO_OUT);
-    gpio_put(GPIO_EXPANDER_RST_PIN, 1); // Must be high or MCP23S18 will stay off
-
-    // Interrupt Pin
-    gpio_init(GPIO_EXPANDER_1_INT_PIN);
-    gpio_set_dir(GPIO_EXPANDER_1_INT_PIN, GPIO_IN);
-
-    spi_set_format(spi_default, 8, SPI_CPOL_0, SPI_CPHA_1, SPI_MSB_FIRST);
-
-    return PICO_OK;
-}   
-
-uint8_t spi_write_byte(uint8_t addr, uint8_t byte){
+uint8_t mcp23s18_write_byte(uint8_t addr, uint8_t byte){
     uint8_t written = 0;
     const uint8_t msg[MSG_ONE_BYTE_LEN] = {MCP23S18_WRITE, addr, byte};
     uint8_t res[MSG_ONE_BYTE_LEN] = {0,0,0};
@@ -61,7 +30,7 @@ uint8_t spi_write_byte(uint8_t addr, uint8_t byte){
     return written;
 }
 
-uint8_t spi_read_byte(uint8_t addr, uint8_t *data){
+uint8_t mcp23s18_read_byte(uint8_t addr, uint8_t *data){
     uint8_t written = 0;
     uint8_t msg[MSG_ONE_BYTE_LEN] = {MCP23S18_READ, addr, 0};
     uint8_t res[MSG_ONE_BYTE_LEN] = {0, 0, 0};
@@ -76,7 +45,7 @@ uint8_t spi_read_byte(uint8_t addr, uint8_t *data){
     return written;
 }
 
-uint8_t spi_write_2_sequential_bytes(uint8_t addr, uint8_t msg1, uint8_t msg2) {
+uint8_t mcp23s18_write_2_sequential_bytes(uint8_t addr, uint8_t msg1, uint8_t msg2) {
     uint8_t written = 0;
     const uint8_t msg[MSG_TWO_BYTE_LEN] = {MCP23S18_WRITE, addr, msg1, msg2};
     uint8_t res[MSG_TWO_BYTE_LEN] = {0,0,0,0};
@@ -90,7 +59,7 @@ uint8_t spi_write_2_sequential_bytes(uint8_t addr, uint8_t msg1, uint8_t msg2) {
     return written;
 }
 
-uint8_t spi_read_2_sequential_bytes(uint8_t addr, uint8_t *data) {
+uint8_t mcp23s18_read_2_sequential_bytes(uint8_t addr, uint8_t *data) {
     uint8_t written = 0;
     const uint8_t msg[MSG_TWO_BYTE_LEN] = {MCP23S18_READ, addr, 0, 0};
     uint8_t res[MSG_TWO_BYTE_LEN] = {0,0,0,0};
@@ -109,11 +78,11 @@ uint8_t spi_read_2_sequential_bytes(uint8_t addr, uint8_t *data) {
 int mcp23s18_init(){
     // Bind A/B interrupts to output from both interrupt pins
     uint8_t msg =(1 << IOCON_MIRROR_SHIFT);
-    spi_write_byte(IOCON, msg);
+    mcp23s18_write_byte(IOCON, msg);
     // Set all GPIOs to be internally pulled up
-    spi_write_2_sequential_bytes(GPPUA, ENABLE_ALL_BITS, ENABLE_ALL_BITS);
+    mcp23s18_write_2_sequential_bytes(GPPUA, UINT8_MAX, UINT8_MAX);
     // Enable interrupt-on-change for each pin
-    spi_write_2_sequential_bytes(GPINTENA, ENABLE_ALL_BITS, ENABLE_ALL_BITS);
+    mcp23s18_write_2_sequential_bytes(GPINTENA, UINT8_MAX, UINT8_MAX);
 
     return PICO_OK;
 }

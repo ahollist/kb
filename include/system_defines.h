@@ -1,0 +1,10 @@
+#ifndef _SYSTEM_DEFINES_H
+#define _SYSTEM_DEFINES_H
+
+#define SPI_BAUDRATE 100000000
+
+#define NUM_GPIO_EXPANDERS 1
+
+#define SW_DEBOUNCE_US 200
+
+#endif
