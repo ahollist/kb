@@ -40,6 +40,7 @@ int64_t spi_wakeup_alarm(alarm_id_t id, void* user_data);
 void gpio_callback(uint gpio, uint32_t events);
 
 int main() {
+    // Initialize uart stdio printing, TX=4, RX=5
     stdio_uart_init_full(uart1, 115200, 4, 5);
     printf("hello, world!\n");
 

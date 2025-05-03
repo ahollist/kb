@@ -22,7 +22,7 @@ int led_init(void) {
     // Turn off all LEDs
     set_led(LED_R, false);
     set_led(LED_G, false);
-    set_led(LED_G, false);
+    set_led(LED_B, false);
 
     return PICO_OK;
 }
