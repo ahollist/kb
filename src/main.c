@@ -41,7 +41,7 @@ void gpio_callback(uint gpio, uint32_t events);
 
 int main() {
     // Initialize uart stdio printing, TX=4, RX=5
-    stdio_uart_init_full(uart1, 115200, 4, 5);
+    stdio_uart_init_full(uart1, 115200, UART_TX, UART_RX);
     printf("hello, world!\n");
 
     int ret = 0;
