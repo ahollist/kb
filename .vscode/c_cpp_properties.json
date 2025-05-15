@@ -16,7 +16,8 @@
                 "${workspaceFolder}/include"
             ],
             "defines": [
-                "CFG_TUSB_MCU=OPT_MCU_RP2040"
+                "CFG_TUSB_MCU=OPT_MCU_RP2040",
+                "CFG_TUSB_OS=OPT_OS_FREERTOS"
             ],
             "compilerPath": "/opt/toolchains/arm-gnu-toolchain-14.2.rel1-darwin-x86_64-arm-none-eabi/bin/arm-none-eabi-gcc",
             "cStandard": "c11",

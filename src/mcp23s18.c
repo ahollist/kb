@@ -71,6 +71,9 @@ uint8_t mcp23s18_read_2_sequential_bytes(uint8_t addr, uint8_t *data) {
     if (print_logs) {
         printf("Read from %02X and %02X: "BYTE_TO_BINARY_PATTERN" "BYTE_TO_BINARY_PATTERN"\n", addr, addr+1, BYTE_TO_BINARY(res[2]), BYTE_TO_BINARY(res[3]));
     }
+    if (MSG_TWO_BYTE_LEN != written){
+        printf("Incorrect SPI read: %D out of %D\n", written, MSG_TWO_BYTE_LEN);
+    }
 
     return written;
 }
