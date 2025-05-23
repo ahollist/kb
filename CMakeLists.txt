@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
+# TODO: Verify version of SDKs are sufficient
+
 # Configure SDK (must be before project)
 set(PICO_SDK_PATH $ENV{PICO_SDK_PATH} CACHE PATH "Path to the Raspberry Pi Pico SDK" FORCE)
 message("Using PICO_SDK_PATH from environment ('${PICO_SDK_PATH}')")

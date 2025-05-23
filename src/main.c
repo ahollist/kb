@@ -76,10 +76,15 @@ int main() {
     printf("closing\n");
 }
 
-void usb_device_task() {
+void usb_device_task(void* param) {
+    (void) param;
 
+    tusb_rhport_init_t dev_init = {
+        .role = TUSB_ROLE_DEVICE,
+        .speed = TUSB_SPEED_AUTO
+    };
     // Started after scheduler to avoid issues with USB IRQ
-    tusb_init();
+    tusb_init(BOARD_TUD_RHPORT, &dev_init);
 
     while(true){
         // Task waits here for an event, then proceeds
@@ -87,7 +92,8 @@ void usb_device_task() {
     }
 }
 
-void spi_task() {
+void spi_task(void* param) {
+    (void) param;
     while(true){
         uint32_t notification_value = 0;
         if (pdTRUE == xTaskNotifyWait(0x0UL, ULONG_MAX, &notification_value, portMAX_DELAY)){
@@ -122,7 +128,8 @@ void spi_task() {
     }
 }
 
-void hid_task() {
+void hid_task(void* param) {
+    (void) param;
     while(true) {
         uint32_t notification_value = 0; // We don't use this but maybe in the future
         if (pdTRUE == xTaskNotifyWait(0x0UL, ULONG_MAX, &notification_value, portMAX_DELAY)) {
