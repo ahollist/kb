@@ -3,7 +3,7 @@ Pico SDK is set in the env: `PICO_SDK_PATH` to the https://github.com/raspberryp
 
 FreeRTOS-Kernel is set in the env: `FREERTOS_KERNEL_PATH` to the https://github.com/FreeRTOS/FreeRTOS-Kernel repo
 
-arm-none-eabi toolchain is installed to: `/opt/toolchains/arm-gnu-toolchain-14.2.rel1-darwin-x86_64-arm-none-eabi/bin/arm-none-eabi-gcc`
+arm-none-eabi toolchain is installed to: `/opt/toolchains/arm-gnu-toolchain-x86_64-arm-none-eabi/bin/arm-none-eabi-gcc` or is installed via `sudo apt install gcc-arm-none-eabi` as indicated in the Pico SDK readme
 
 ## Building the target
 
