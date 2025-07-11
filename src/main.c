@@ -18,7 +18,7 @@
 #include "spi.h"
 #include "utils.h"
 
-
+static uint8_t spi_data[NUM_GPIO_EXPANDERS][2] = {0};
 static bool data_updated = false;
 SemaphoreHandle_t keymap_updated;
 

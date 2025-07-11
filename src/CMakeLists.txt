@@ -1,6 +1,8 @@
 add_executable(kb
     main.c
+    led.c
     mcp23s18.c
+    spi.c
     usb_descriptors.c
     )
 
