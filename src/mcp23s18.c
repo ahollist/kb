@@ -20,6 +20,7 @@ uint8_t mcp23s18_write_byte(uint8_t addr, uint8_t byte){
     uint8_t written = 0;
     const uint8_t msg[MSG_ONE_BYTE_LEN] = {MCP23S18_WRITE, addr, byte};
     uint8_t res[MSG_ONE_BYTE_LEN] = {0,0,0};
+    // TODO: add parameter to define which GPIO expander to write to
     gpio_put(1, 0);
     written = spi_write_read_blocking(spi_default, msg, res, MSG_ONE_BYTE_LEN);
     gpio_put(1, 1);

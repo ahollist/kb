@@ -4,12 +4,7 @@
 #include "pico/stdlib.h"
 #include "pico/platform.h"
 
-#include "hardware/clocks.h"
-#include "hardware/gpio.h"
-#include "hardware/spi.h"
-
 #include "FreeRTOS.h"
-#include "task.h"
 #include "semphr.h"
 
 #include "tusb.h"
@@ -20,28 +15,19 @@
 
 #include "led.h"
 #include "mcp23s18.h"
+#include "spi.h"
 #include "utils.h"
 
 
-typedef struct spi_task_notification {
-    uint32_t gpio_expander_0 : 1;
-    uint32_t rsvd : 31;
-} SPI_Task_Notification_t;
-
-int system_spi_init();
-
-static uint8_t spi_data[NUM_GPIO_EXPANDERS][2] = {0};
 static bool data_updated = false;
-
 SemaphoreHandle_t keymap_updated;
 
-TaskHandle_t usb_device_task_handle;
-TaskHandle_t spi_task_handle;
-TaskHandle_t hid_task_handle;
+// TODO: define keyboard report structure
+typedef struct custom_hid_report {
 
-void usb_device_task();
-void spi_task();
-void hid_task();
+} Keyboard_Report_t;
+// TODO: define send_hid_report
+bool send_hid_report(uint8_t report_id, const Keyboard_Report_t);
 
 int64_t spi_wakeup_alarm(alarm_id_t id, void* user_data);
 void gpio_callback(uint gpio, uint32_t events);
@@ -103,11 +89,13 @@ void spi_task(void* param) {
             if (notification.gpio_expander_0) {
                 uint8_t bytes_read = mcp23s18_read_2_sequential_bytes(GPIOA, data); // eventually choose CS as well
                 (void) bytes_read;
+                // TODO: Move data handling into a structure/function
                 if (0 == data[0] && 0 == data[1]) {
                     printf("GOT ALL ZEROES\n");
                 }
                 if (data[0] != spi_data[0][0]) {
                     spi_data[0][0] = data[0];
+                    // TODO: Use semaphore instead of bool
                     data_updated = true;
                 }
                 if (data[1] != spi_data[0][1]) {
@@ -173,6 +161,7 @@ void gpio_callback(uint gpio, uint32_t events) {
     static SPI_Task_Notification_t which_expander = {0};
     switch(gpio){
         case GPIO_EXPANDER_0_INT_PIN:
+            // Disable new interrupts from this expander until we've finished handling it
             gpio_set_irq_enabled(GPIO_EXPANDER_0_INT_PIN, GPIO_IRQ_LEVEL_LOW, false);
             which_expander.gpio_expander_0 = true;
             break;
@@ -183,40 +172,6 @@ void gpio_callback(uint gpio, uint32_t events) {
     // Start 200us Alarm, calling the wakeup directly if the timeout expires before setting
     add_alarm_in_us(SW_DEBOUNCE_US, spi_wakeup_alarm, (void*)&which_expander, true);
 }
-
-int system_spi_init() {
-    uint real_baud = spi_init(spi_default, SPI_BAUDRATE);
-    
-    printf("set spi baudrate at: %d\n", real_baud);
-    printf("system clock: %d\n", clock_get_hz(clk_peri));
-
-    gpio_init(SPI_MOSI_PIN);
-    gpio_set_function(SPI_MOSI_PIN, GPIO_FUNC_SPI);
-
-    gpio_init(SPI_MISO_PIN);
-    gpio_set_function(SPI_MISO_PIN, GPIO_FUNC_SPI);
-
-    gpio_init(SPI_SCLK_PIN);
-    gpio_set_function(SPI_SCLK_PIN, GPIO_FUNC_SPI);
-
-    // Manual CS control
-    gpio_init(GPIO_EXPANDER_0_CS_PIN);
-    gpio_set_dir(GPIO_EXPANDER_0_CS_PIN, GPIO_OUT);
-    gpio_put(GPIO_EXPANDER_0_CS_PIN, 1);
-
-    // !RST
-    gpio_init(GPIO_EXPANDER_0_RST_PIN);
-    gpio_set_dir(GPIO_EXPANDER_0_RST_PIN, GPIO_OUT);
-    gpio_put(GPIO_EXPANDER_0_RST_PIN, 1); // Must be high or MCP23S18 will stay off
-
-    // Interrupt Pin
-    gpio_init(GPIO_EXPANDER_0_INT_PIN);
-    gpio_set_dir(GPIO_EXPANDER_0_INT_PIN, GPIO_IN);
-
-    spi_set_format(spi_default, 8, SPI_CPOL_0, SPI_CPHA_1, SPI_MSB_FIRST);
-
-    return PICO_OK;
-}  
 
 //--------------------------------------------------------------------+
 // HID Report Callbacks
